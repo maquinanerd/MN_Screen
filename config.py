@@ -2,8 +2,8 @@ import os
 
 # RSS Feeds Configuration
 RSS_FEEDS = {
-    'movies': 'https://comicbook.com/category/movies/feed/',
-    'tv-shows': 'https://comicbook.com/category/tv-shows/feed/'
+    'movies': 'https://screenrant.com/feed/movie-news/',
+    'tv-shows': 'https://screenrant.com/feed/tv-news/'
 }
 
 # User Agent for requests
@@ -24,8 +24,8 @@ AI_CONFIG = {
 # WordPress Configuration
 WORDPRESS_CONFIG = {
     'url': os.getenv('WORDPRESS_URL', 'https://www.maquinanerd.com.br/wp-json/wp/v2/'),
-    'user': os.getenv('WORDPRESS_USER', 'Eduardo'),
-    'password': os.getenv('WORDPRESS_PASSWORD', 'QhDY Ch9y kTsX fyhU 9iR2 CAVp')
+    'user': os.getenv('WORDPRESS_USER', 'Gameleira'),
+    'password': os.getenv('WORDPRESS_PASSWORD', '3L8w x14j vIhs uz97 6DH4 dMHZ')
 }
 
 # WordPress Categories
