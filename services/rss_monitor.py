@@ -3,7 +3,7 @@ import requests
 import trafilatura
 import logging
 from datetime import datetime, timedelta
-from app import db
+from app import db, app  # Importando o app para usar o contexto
 from models import Article
 from config import RSS_FEEDS, USER_AGENT
 from bs4 import BeautifulSoup
@@ -49,8 +49,9 @@ class RSSMonitor:
         # Save new articles to database
         if new_articles:
             try:
-                db.session.add_all(new_articles)
-                db.session.commit()
+                with app.app_context():  # Garantindo que o código está no contexto da aplicação
+                    db.session.add_all(new_articles)
+                    db.session.commit()
                 logger.info(f"Saved {len(new_articles)} new articles to database")
             except Exception as e:
                 logger.error(f"Error saving articles to database: {str(e)}")
@@ -129,10 +130,11 @@ class RSSMonitor:
                 Article.created_at < cutoff_date
             ).all()
 
-            for article in old_articles:
-                db.session.delete(article)
+            with app.app_context():  # Garantindo que o código está no contexto da aplicação
+                for article in old_articles:
+                    db.session.delete(article)
 
-            db.session.commit()
+                db.session.commit()
             logger.info(f"Cleaned up {len(old_articles)} old articles")
 
         except Exception as e:
