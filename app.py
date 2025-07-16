@@ -26,7 +26,7 @@ app.secret_key = os.getenv("SESSION_SECRET", "your-secret-key-change-in-producti
 app.wsgi_app = ProxyFix(app.wsgi_app, x_proto=1, x_host=1)
 
 # Configuração do banco de dados (substituindo com as credenciais fornecidas)
-app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://mn_filme_serie_db_user:3N5o6A3gNnDSEojgOBHP61q9BDvd8xFk@dpg-d1mk3sumcj7s7399t1dg-a/mn_filme_serie_db"
+app.config["SQLALCHEMY_DATABASE_URI"] = "postgresql://bd_mn_screen_user:KErcu3pu7YI7JDtskweigKsaRDxZ9yX8@dpg-d1rpolje5dus73c2iuv0-a/bd_mn_screen"
 app.config["SQLALCHEMY_ENGINE_OPTIONS"] = {
     "pool_recycle": 300,  # Tempo para reciclar conexões inativas
     "pool_pre_ping": True,  # Verifica a conexão antes de usar
