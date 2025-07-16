@@ -9,7 +9,7 @@ from requests.auth import HTTPBasicAuth
 def test_wordpress_connection():
     # Get credentials from environment
     wp_url = os.getenv('WORDPRESS_URL', 'https://maquinanerd.com.br/wp-json/wp/v2/')
-    wp_user = os.getenv('WORDPRESS_USER', 'Eduardo')
+    wp_user = os.getenv('WORDPRESS_USER', 'Gameleira')
     wp_password = os.getenv('WORDPRESS_PASSWORD', '')
     
     # Fix URL if it doesn't end with the API path
