@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 from google import genai
 from google.genai import types
-from app import db
+from app import db, app  # Importando o app para usar o contexto
 from models import Article, ProcessingLog
 from config import AI_CONFIG, UNIVERSAL_PROMPT
 from concurrent.futures import ThreadPoolExecutor
@@ -46,30 +46,31 @@ class AIProcessor:
 
     def process_pending_articles(self, max_articles=3):
         """Process pending articles using appropriate AI"""
-        pending_articles = Article.query.filter_by(status='pending').limit(max_articles).all()
+        with app.app_context():  # Garantindo que o código está no contexto da aplicação
+            pending_articles = Article.query.filter_by(status='pending').limit(max_articles).all()
 
-        processed_count = 0
-        with ThreadPoolExecutor(max_workers=3) as executor:
-            future_to_article = {executor.submit(self._process_article, article): article for article in pending_articles}
-            
-            for future in future_to_article:
-                article = future_to_article[future]
-                try:
-                    result = future.result()  # Bloqueia até que a tarefa termine
-                    if result:
-                        processed_count += 1
-                    else:
+            processed_count = 0
+            with ThreadPoolExecutor(max_workers=3) as executor:
+                future_to_article = {executor.submit(self._process_article, article): article for article in pending_articles}
+
+                for future in future_to_article:
+                    article = future_to_article[future]
+                    try:
+                        result = future.result()  # Bloqueia até que a tarefa termine
+                        if result:
+                            processed_count += 1
+                        else:
+                            article.status = 'failed'
+                            article.error_message = 'AI processing failed'
+                            self._log_processing(article.id, 'AI_PROCESSING', 'AI processing failed', article.ai_used, False)
+
+                        db.session.commit()
+
+                    except Exception as e:
+                        logger.error(f"Error processing article {article.id}: {str(e)}")
                         article.status = 'failed'
-                        article.error_message = 'AI processing failed'
-                        self._log_processing(article.id, 'AI_PROCESSING', 'AI processing failed', article.ai_used, False)
-
-                    db.session.commit()
-
-                except Exception as e:
-                    logger.error(f"Error processing article {article.id}: {str(e)}")
-                    article.status = 'failed'
-                    article.error_message = str(e)
-                    db.session.commit()
+                        article.error_message = str(e)
+                        db.session.commit()
 
         return processed_count
 
@@ -107,7 +108,6 @@ class AIProcessor:
 
     def _process_with_ai(self, article, ai_type):
         """Process article with specified AI type, with fallback to backup"""
-        # Try primary AI first
         client_key = f"{ai_type}_primary"
         if client_key in self.clients:
             result = self._call_ai(self.clients[client_key], article, f"{ai_type}_primary")
@@ -115,7 +115,6 @@ class AIProcessor:
                 article.ai_used = f"{ai_type}_primary"
                 return result
 
-        # Fallback to backup AI
         client_key = f"{ai_type}_backup"
         if client_key in self.clients:
             logger.warning(f"Primary {ai_type} AI failed, trying backup")
@@ -148,7 +147,6 @@ class AIProcessor:
             if response.text:
                 try:
                     result = json.loads(response.text)
-                    # Validate required fields
                     required_fields = ['titulo_final', 'conteudo_final', 'meta_description', 
                                        'focus_keyword', 'categoria', 'obra_principal', 'tags']
 
@@ -178,17 +176,14 @@ class AIProcessor:
         if not content:
             return content
 
-        # Replace ** with <strong> tags
         content = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', content)
 
-        # Split into sentences and regroup into paragraphs
         sentences = re.split(r'[.!?]+', content)
         sentences = [s.strip() for s in sentences if s.strip()]
 
         if len(sentences) < 5:
-            return content  # Keep as is if too short
+            return content
 
-        # Group sentences into paragraphs (3 sentences per paragraph)
         paragraphs = []
         for i in range(0, len(sentences), 3):
             paragraph_sentences = sentences[i:i+3]
@@ -203,15 +198,16 @@ class AIProcessor:
     def _log_processing(self, article_id, action, message, ai_used, success):
         """Log processing actions"""
         try:
-            log = ProcessingLog(
-                article_id=article_id,
-                action=action,
-                message=message,
-                ai_used=ai_used,
-                success=success
-            )
-            db.session.add(log)
-            db.session.commit()
+            with app.app_context():  # Garantindo que o log aconteça dentro do contexto
+                log = ProcessingLog(
+                    article_id=article_id,
+                    action=action,
+                    message=message,
+                    ai_used=ai_used,
+                    success=success
+                )
+                db.session.add(log)
+                db.session.commit()
         except Exception as e:
             logger.error(f"Error logging processing action: {str(e)}")
 
