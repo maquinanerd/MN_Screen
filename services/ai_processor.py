@@ -5,7 +5,7 @@ import re
 from datetime import datetime
 from google import genai
 from google.genai import types
-from app import db, app  # Importando o app para usar o contexto
+from app import db, app
 from models import Article, ProcessingLog
 from config import AI_CONFIG, UNIVERSAL_PROMPT
 from concurrent.futures import ThreadPoolExecutor
@@ -28,7 +28,6 @@ class AIProcessor:
             AIProcessor._initialized = True
 
     def _init_clients(self):
-        """Initialize Gemini clients for each AI"""
         for ai_type, config in AI_CONFIG.items():
             if config['primary']:
                 try:
@@ -45,13 +44,15 @@ class AIProcessor:
                     logger.error(f"Failed to initialize {ai_type} backup AI: {str(e)}")
 
     def process_pending_articles(self, max_articles=3):
-        """Process pending articles using appropriate AI"""
         with app.app_context():
             pending_articles = Article.query.filter_by(status='pending').limit(max_articles).all()
-
             processed_count = 0
+
             with ThreadPoolExecutor(max_workers=3) as executor:
-                future_to_article = {executor.submit(self._process_article, article): article for article in pending_articles}
+                future_to_article = {
+                    executor.submit(self._process_article, article): article
+                    for article in pending_articles
+                }
 
                 for future in future_to_article:
                     article = future_to_article[future]
@@ -63,9 +64,7 @@ class AIProcessor:
                             article.status = 'failed'
                             article.error_message = 'AI processing failed'
                             self._log_processing(article.id, 'AI_PROCESSING', 'AI processing failed', article.ai_used, False)
-
                         db.session.commit()
-
                     except Exception as e:
                         logger.error(f"Error processing article {article.id}: {str(e)}")
                         article.status = 'failed'
@@ -75,14 +74,12 @@ class AIProcessor:
         return processed_count
 
     def _process_article(self, article):
-        """Process a single article."""
         with app.app_context():
             start_time = time.time()
             article.status = 'processing'
             db.session.commit()
 
             ai_type = 'cinema' if article.feed_type == 'movies' else 'series'
-
             result = self._process_with_ai(article, ai_type)
 
             if result:
@@ -107,27 +104,25 @@ class AIProcessor:
             db.session.commit()
 
     def _process_with_ai(self, article, ai_type):
-        """Process article with specified AI type, with fallback to backup"""
         client_key = f"{ai_type}_primary"
         if client_key in self.clients:
-            result = self._call_ai(self.clients[client_key], article, f"{ai_type}_primary")
+            result = self._call_ai(self.clients[client_key], article, client_key)
             if result:
-                article.ai_used = f"{ai_type}_primary"
+                article.ai_used = client_key
                 return result
 
         client_key = f"{ai_type}_backup"
         if client_key in self.clients:
             logger.warning(f"Primary {ai_type} AI failed, trying backup")
-            result = self._call_ai(self.clients[client_key], article, f"{ai_type}_backup")
+            result = self._call_ai(self.clients[client_key], article, client_key)
             if result:
-                article.ai_used = f"{ai_type}_backup"
+                article.ai_used = client_key
                 return result
 
         logger.error(f"Both primary and backup {ai_type} AIs failed")
         return None
 
     def _call_ai(self, client, article, ai_name):
-        """Make actual AI call with error handling"""
         try:
             prompt = UNIVERSAL_PROMPT.format(
                 titulo=article.original_title,
@@ -139,8 +134,7 @@ class AIProcessor:
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json"
-                ),
-                timeout=30
+                )
             )
 
             if response.text:
@@ -167,7 +161,6 @@ class AIProcessor:
             return None
 
     def _correct_paragraphs(self, content):
-        """Ensure content has proper paragraph structure and format"""
         if not content:
             return content
 
@@ -190,7 +183,6 @@ class AIProcessor:
         return '\n\n'.join(paragraphs)
 
     def _log_processing(self, article_id, action, message, ai_used, success):
-        """Log processing actions"""
         try:
             with app.app_context():
                 log = ProcessingLog(
@@ -206,7 +198,6 @@ class AIProcessor:
             logger.error(f"Error logging processing action: {str(e)}")
 
     def get_ai_status(self):
-        """Get status of all AIs"""
         status = {}
         for ai_type in ['cinema', 'series']:
             status[ai_type] = {
@@ -217,7 +208,6 @@ class AIProcessor:
         return status
 
     def _get_last_used_time(self, ai_type):
-        """Get last time an AI was used"""
         last_log = ProcessingLog.query.filter(
             ProcessingLog.ai_used.like(f"{ai_type}%")
         ).order_by(ProcessingLog.created_at.desc()).first()
