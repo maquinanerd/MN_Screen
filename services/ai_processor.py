@@ -46,7 +46,7 @@ class AIProcessor:
 
     def process_pending_articles(self, max_articles=3):
         """Process pending articles using appropriate AI"""
-        with app.app_context():  # Garantindo que o código está no contexto da aplicação
+        with app.app_context():
             pending_articles = Article.query.filter_by(status='pending').limit(max_articles).all()
 
             processed_count = 0
@@ -56,7 +56,7 @@ class AIProcessor:
                 for future in future_to_article:
                     article = future_to_article[future]
                     try:
-                        result = future.result()  # Bloqueia até que a tarefa termine
+                        result = future.result()
                         if result:
                             processed_count += 1
                         else:
@@ -76,35 +76,35 @@ class AIProcessor:
 
     def _process_article(self, article):
         """Process a single article."""
-        start_time = time.time()
-        article.status = 'processing'
-        db.session.commit()
+        with app.app_context():
+            start_time = time.time()
+            article.status = 'processing'
+            db.session.commit()
 
-        ai_type = 'cinema' if article.feed_type == 'movies' else 'series'
+            ai_type = 'cinema' if article.feed_type == 'movies' else 'series'
 
-        result = self._process_with_ai(article, ai_type)
+            result = self._process_with_ai(article, ai_type)
 
-        if result:
-            # Atualize os artigos com o resultado da IA
-            article.titulo_final = re.sub(r'</?strong>', '', result.get('titulo_final', ''))
-            article.conteudo_final = self._correct_paragraphs(result.get('conteudo_final'))
-            article.meta_description = result.get('meta_description')
-            article.focus_keyword = result.get('focus_keyword')
-            article.categoria = result.get('categoria')
-            article.obra_principal = result.get('obra_principal')
-            article.tags = json.dumps(result.get('tags', []))
-            article.status = 'processed'
-            article.processed_at = datetime.utcnow()
-            article.processing_time = int(time.time() - start_time)
+            if result:
+                article.titulo_final = re.sub(r'</?strong>', '', result.get('titulo_final', ''))
+                article.conteudo_final = self._correct_paragraphs(result.get('conteudo_final'))
+                article.meta_description = result.get('meta_description')
+                article.focus_keyword = result.get('focus_keyword')
+                article.categoria = result.get('categoria')
+                article.obra_principal = result.get('obra_principal')
+                article.tags = json.dumps(result.get('tags', []))
+                article.status = 'processed'
+                article.processed_at = datetime.utcnow()
+                article.processing_time = int(time.time() - start_time)
 
-            self._log_processing(article.id, 'AI_PROCESSING', 'Successfully processed article', article.ai_used, True)
-            logger.info(f"Successfully processed article: {article.original_title}")
-        else:
-            article.status = 'failed'
-            article.error_message = 'AI processing failed'
-            self._log_processing(article.id, 'AI_PROCESSING', 'AI processing failed', article.ai_used, False)
+                self._log_processing(article.id, 'AI_PROCESSING', 'Successfully processed article', article.ai_used, True)
+                logger.info(f"Successfully processed article: {article.original_title}")
+            else:
+                article.status = 'failed'
+                article.error_message = 'AI processing failed'
+                self._log_processing(article.id, 'AI_PROCESSING', 'AI processing failed', article.ai_used, False)
 
-        db.session.commit()
+            db.session.commit()
 
     def _process_with_ai(self, article, ai_type):
         """Process article with specified AI type, with fallback to backup"""
@@ -134,20 +134,19 @@ class AIProcessor:
                 conteudo=article.original_content
             )
 
-            # Adicionando timeout de 30 segundos
             response = client.models.generate_content(
                 model="gemini-2.5-flash",
                 contents=prompt,
                 config=types.GenerateContentConfig(
                     response_mime_type="application/json"
                 ),
-                timeout=30  # Timeout de 30 segundos
+                timeout=30
             )
 
             if response.text:
                 try:
                     result = json.loads(response.text)
-                    required_fields = ['titulo_final', 'conteudo_final', 'meta_description', 
+                    required_fields = ['titulo_final', 'conteudo_final', 'meta_description',
                                        'focus_keyword', 'categoria', 'obra_principal', 'tags']
 
                     if all(field in result for field in required_fields):
@@ -163,10 +162,6 @@ class AIProcessor:
                 logger.error(f"Empty response from {ai_name}")
                 return None
 
-        except requests.exceptions.Timeout:
-            logger.error(f"Timeout exceeded for AI call {ai_name}")
-            return None
-
         except Exception as e:
             logger.error(f"AI call failed for {ai_name}: {str(e)}")
             return None
@@ -177,7 +172,6 @@ class AIProcessor:
             return content
 
         content = re.sub(r'\*\*([^*]+)\*\*', r'<strong>\1</strong>', content)
-
         sentences = re.split(r'[.!?]+', content)
         sentences = [s.strip() for s in sentences if s.strip()]
 
@@ -198,7 +192,7 @@ class AIProcessor:
     def _log_processing(self, article_id, action, message, ai_used, success):
         """Log processing actions"""
         try:
-            with app.app_context():  # Garantindo que o log aconteça dentro do contexto
+            with app.app_context():
                 log = ProcessingLog(
                     article_id=article_id,
                     action=action,
