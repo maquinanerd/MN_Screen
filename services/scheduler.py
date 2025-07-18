@@ -1,5 +1,4 @@
 import logging
-import psutil  # <- adicionado
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from services.rss_monitor import RSSMonitor
@@ -76,10 +75,6 @@ class ContentAutomationScheduler:
                 )
                 logger.info(f"Published {published} articles")
 
-                # Log final memory usage
-                mem = psutil.virtual_memory()
-                logger.info(f"RAM usage after cycle: {mem.percent}%")
-
                 logger.info(f"=== Cycle completed: {new_articles} new, {processed} processed, {published} published ===")
 
             except Exception as e:
@@ -108,27 +103,3 @@ class ContentAutomationScheduler:
     def get_status(self):
         """Get scheduler status"""
         return {
-            'running': self.is_running,
-            'jobs': [
-                {
-                    'id': job.id,
-                    'name': job.name,
-                    'next_run': job.next_run_time.isoformat() if job.next_run_time else None
-                }
-                for job in self.scheduler.get_jobs()
-            ]
-        }
-
-# Global scheduler instance
-scheduler_instance = None
-
-def init_scheduler():
-    """Initialize global scheduler"""
-    global scheduler_instance
-    scheduler_instance = ContentAutomationScheduler()
-    scheduler_instance.start()
-    return scheduler_instance
-
-def get_scheduler():
-    """Get global scheduler instance"""
-    return scheduler_instance
