@@ -1,4 +1,5 @@
 import logging
+import psutil  # <- adicionado
 from apscheduler.schedulers.background import BackgroundScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from services.rss_monitor import RSSMonitor
@@ -51,7 +52,7 @@ class ContentAutomationScheduler:
     def automation_cycle(self):
         """Main automation cycle"""
         from app import app
-        
+
         with app.app_context():
             try:
                 logger.info("=== Starting automation cycle ===")
@@ -75,6 +76,10 @@ class ContentAutomationScheduler:
                 )
                 logger.info(f"Published {published} articles")
 
+                # Log final memory usage
+                mem = psutil.virtual_memory()
+                logger.info(f"RAM usage after cycle: {mem.percent}%")
+
                 logger.info(f"=== Cycle completed: {new_articles} new, {processed} processed, {published} published ===")
 
             except Exception as e:
@@ -83,7 +88,7 @@ class ContentAutomationScheduler:
     def cleanup_cycle(self):
         """Database cleanup cycle"""
         from app import app
-        
+
         with app.app_context():
             try:
                 logger.info("Starting cleanup cycle")
@@ -95,7 +100,7 @@ class ContentAutomationScheduler:
     def execute_now(self):
         """Execute automation cycle immediately"""
         from app import app
-        
+
         logger.info("Manual execution triggered")
         with app.app_context():
             self.automation_cycle()
