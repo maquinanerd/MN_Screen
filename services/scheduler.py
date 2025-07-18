@@ -103,3 +103,13 @@ class ContentAutomationScheduler:
     def get_status(self):
         """Get scheduler status"""
         return {
+            'running': self.is_running,
+            'jobs': [
+                {
+                    'id': job.id,
+                    'name': job.name,
+                    'next_run': job.next_run_time.isoformat() if job.next_run_time else None
+                }
+                for job in self.scheduler.get_jobs()
+            ]
+        }
