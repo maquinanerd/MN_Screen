@@ -19,7 +19,6 @@ class ContentAutomationScheduler:
     def start(self):
         """Start the automation scheduler"""
         if not self.is_running:
-            # Schedule main automation cycle
             self.scheduler.add_job(
                 func=self.automation_cycle,
                 trigger=IntervalTrigger(minutes=SCHEDULE_CONFIG['check_interval']),
@@ -28,7 +27,6 @@ class ContentAutomationScheduler:
                 replace_existing=True
             )
 
-            # Schedule cleanup
             self.scheduler.add_job(
                 func=self.cleanup_cycle,
                 trigger=IntervalTrigger(hours=SCHEDULE_CONFIG['cleanup_after_hours']),
@@ -51,24 +49,19 @@ class ContentAutomationScheduler:
     def automation_cycle(self):
         """Main automation cycle"""
         from app import app
-
         with app.app_context():
             try:
                 logger.info("=== Starting automation cycle ===")
-
-                # Step 1: Fetch new articles from RSS feeds
                 logger.info("Step 1: Fetching new articles...")
                 new_articles = self.rss_monitor.fetch_new_articles()
                 logger.info(f"Found {new_articles} new articles")
 
-                # Step 2: Process pending articles with AI
                 logger.info("Step 2: Processing articles with AI...")
                 processed = self.ai_processor.process_pending_articles(
                     max_articles=SCHEDULE_CONFIG['max_articles_per_run']
                 )
                 logger.info(f"Processed {processed} articles")
 
-                # Step 3: Publish processed articles to WordPress
                 logger.info("Step 3: Publishing to WordPress...")
                 published = self.wordpress_publisher.publish_processed_articles(
                     max_articles=SCHEDULE_CONFIG['max_articles_per_run']
@@ -76,14 +69,12 @@ class ContentAutomationScheduler:
                 logger.info(f"Published {published} articles")
 
                 logger.info(f"=== Cycle completed: {new_articles} new, {processed} processed, {published} published ===")
-
             except Exception as e:
                 logger.error(f"Error in automation cycle: {str(e)}", exc_info=True)
 
     def cleanup_cycle(self):
         """Database cleanup cycle"""
         from app import app
-
         with app.app_context():
             try:
                 logger.info("Starting cleanup cycle")
@@ -95,7 +86,6 @@ class ContentAutomationScheduler:
     def execute_now(self):
         """Execute automation cycle immediately"""
         from app import app
-
         logger.info("Manual execution triggered")
         with app.app_context():
             self.automation_cycle()
@@ -113,3 +103,17 @@ class ContentAutomationScheduler:
                 for job in self.scheduler.get_jobs()
             ]
         }
+
+# Global scheduler instance
+scheduler_instance = None
+
+def init_scheduler():
+    """Initialize global scheduler"""
+    global scheduler_instance
+    scheduler_instance = ContentAutomationScheduler()
+    scheduler_instance.start()
+    return scheduler_instance
+
+def get_scheduler():
+    """Get global scheduler instance"""
+    return scheduler_instance
