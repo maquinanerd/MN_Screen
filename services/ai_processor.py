@@ -9,6 +9,7 @@ from app import db, app
 from models import Article, ProcessingLog
 from config import AI_CONFIG, UNIVERSAL_PROMPT
 from concurrent.futures import ThreadPoolExecutor
+# import psutil  # Descomente para monitorar RAM
 
 logger = logging.getLogger(__name__)
 
@@ -48,7 +49,7 @@ class AIProcessor:
             pending_articles = Article.query.filter_by(status='pending').limit(max_articles).all()
             processed_count = 0
 
-            with ThreadPoolExecutor(max_workers=3) as executor:
+            with ThreadPoolExecutor(max_workers=2) as executor:
                 future_to_article = {
                     executor.submit(self._process_article, article): article
                     for article in pending_articles
@@ -96,6 +97,14 @@ class AIProcessor:
 
                 self._log_processing(article.id, 'AI_PROCESSING', 'Successfully processed article', article.ai_used, True)
                 logger.info(f"Successfully processed article: {article.original_title}")
+
+                # Descomente para monitorar RAM
+                # mem = psutil.virtual_memory()
+                # logger.info(f"RAM usage: {mem.percent}%")
+
+                # Pausa para aliviar uso de memória
+                time.sleep(1.5)
+
             else:
                 article.status = 'failed'
                 article.error_message = 'AI processing failed'
