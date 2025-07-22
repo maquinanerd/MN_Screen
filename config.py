@@ -25,7 +25,7 @@ AI_CONFIG = {
 WORDPRESS_CONFIG = {
     'url': os.getenv('WORDPRESS_URL', 'https://www.maquinanerd.com.br/wp-json/wp/v2/'),
     'user': os.getenv('WORDPRESS_USER', 'Gameleira'),
-    'password': os.getenv('WORDPRESS_PASSWORD', '3L8w x14j vIhs uz97 6DH4 dMHZ')
+    'password': os.getenv('WORDPRESS_PASSWORD', '') # Removida a senha hardcoded
 }
 
 # WordPress Categories
