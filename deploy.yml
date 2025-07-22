@@ -1,0 +1,41 @@
+# Nome do seu workflow. Aparecerá na aba "Actions" do seu repositório no GitHub.
+name: Deploy to Render
+
+# Define quando este workflow deve ser executado.
+on:
+  push:
+    branches:
+      - master  # Altere para 'main' se sua branch principal for 'main'
+
+# Define os "trabalhos" (jobs) que serão executados.
+jobs:
+  build-and-deploy:
+    # O tipo de máquina virtual que o job vai rodar.
+    runs-on: ubuntu-latest
+
+    # Os passos que compõem o job.
+    steps:
+      # 1. Baixa o código do seu repositório para a máquina virtual.
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      # 2. Configura o ambiente Python.
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11' # Use a versão do Python do seu projeto
+
+      # 3. Instala as dependências do projeto.
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      # 4. Roda os testes! Este é o seu portão de qualidade.
+      - name: Run tests
+        run: pytest
+
+      # 5. Se os testes passarem, avisa o Render para fazer o deploy.
+      - name: Trigger Render Deploy
+        if: success() # Só executa se os passos anteriores (testes) foram bem-sucedidos
+        run: curl -X POST ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
